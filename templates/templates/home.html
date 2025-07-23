@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Home - MediCheck{% endblock %}
+{% block content %}
+<div class="hero-section">
+    <div class="glass-card">
+        <h1>MediCheck</h1>
+        <p class="lead">Keep track of the medicines you already have at home with our modern, intuitive interface.</p>
+        
+        <div class="google-signin-container">
+            <div id="g_id_onload"
+                 data-client_id="184957211263-1thhnhgv80b47e2htjjalmnmu64c28js.apps.googleusercontent.com"
+                 data-callback="handleCredentialResponse"
+                 data-auto_prompt="false">
+            </div>
+            <div class="g_id_signin" 
+                 data-type="standard" 
+                 data-size="large" 
+                 data-theme="filled_blue" 
+                 data-text="sign_in_with" 
+                 data-shape="rectangular" 
+                 data-logo_alignment="left">
+            </div>
+        </div>
+        
+        <form id="idtoken-form" method="POST" action="/token-signin" style="display:none;">
+            <input type="hidden" name="id_token" id="id_token_input">
+        </form>
+    </div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+function handleCredentialResponse(response) {
+    document.getElementById('id_token_input').value = response.credential;
+    document.getElementById('idtoken-form').submit();
+}
+</script>
+{% endblock %}

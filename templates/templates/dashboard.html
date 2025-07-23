@@ -1,0 +1,252 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard - MediCheck{% endblock %}
+{% block content %}
+<div id="sidebarOverlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.35);z-index:2000;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);"></div>
+
+<aside id="sidebar" style="position:fixed;top:0;left:-360px;width:340px;height:100vh;background:rgba(36,38,46,0.85);color:#fff;z-index:2100;box-shadow:8px 0 32px rgba(0,0,0,0.25);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);padding:2.5rem 1.5rem 1.5rem 1.5rem;display:flex;flex-direction:column;border-top-right-radius:22px;border-bottom-right-radius:22px;border-right:1.5px solid rgba(255,255,255,0.08);transition:left 0.35s cubic-bezier(0.4,0,0.2,1);overflow-y:auto;">
+  
+  <h2 style="margin-top:0;margin-bottom:2rem;font-size:1.5rem;font-weight:700;letter-spacing:1px;color:#fff;"></h2>
+  
+  <a href="/add" class="btn btn-success mb-2" style="width:100%;">+ Add Medicine</a>
+  <a href="/export" class="btn btn-secondary mb-2" style="width:100%;">Export CSV</a>
+  
+  <div class="sidebar-import-group">
+    <form method="post" action="/import" enctype="multipart/form-data" style="display:flex;flex-direction:column;align-items:stretch;gap:0.7rem;">
+      <label for="csvfile" class="file-upload-label">Choose File</label>
+      <input type="file" id="csvfile" name="csvfile" accept=".csv" required style="display:none;">
+      <span id="csvfile-name" class="file-upload-name">No file chosen</span>
+      <button type="submit" class="import-csv-btn">Import CSV</button>
+    </form>
+  </div>
+  
+  
+  <input type="text" id="searchInput" placeholder="Search by name..." style="padding:8px;border-radius:4px;border:1.5px solid #35363c;min-width:180px;width:100%;margin-bottom:0.5rem;background:rgba(24,26,32,0.85);color:#f3f4f6;">
+  <label for="statusFilter" class="sr-only" style="position:absolute;left:-9999px;">Filter by status</label>
+  
+  <select id="statusFilter" style="padding:8px;border-radius:4px;border:1.5px solid #35363c;width:100%;margin-bottom:0.5rem;background:rgba(24,26,32,0.85);color:#f3f4f6;">
+    <option value="all">All</option>
+    <option value="expired">Expired</option>
+    <option value="expiring">Expiring Soon</option>
+    <option value="active">Active</option>
+  </select>
+  
+  <label for="sortBy" class="sr-only" style="position:absolute;left:-9999px;">Sort by</label>
+  
+  <select id="sortBy" style="padding:8px;border-radius:4px;border:1.5px solid #35363c;width:100%;background:rgba(24,26,32,0.85);color:#f3f4f6;">
+    <option value="expiry">Sort by Expiry Date</option>
+    <option value="name">Sort by Name</option>
+  </select>
+
+</aside>
+
+<button id="sidebarOpen" class="btn btn-secondary" style="position:fixed;top:24px;left:24px;z-index:2200;">☰</button>
+
+<div class="d-flex justify-content-between align-items-center mb-4" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
+  <div>
+    <h2 class="mb-0">Your Medicines</h2>
+    <div class="text-muted small">Logged in as: <strong>{{ current_user.name }}</strong> ({{ current_user.email }})</div>
+  </div>
+  <a href="/logout" class="btn btn-secondary">Logout</a>
+</div>
+
+<div class="row" id="medicinesRow">
+  <div class="col" id="expiredCol">
+    <h4 class="text-danger">Expired</h4>
+    <div class="cards-container" id="expiredCards">
+    {% for med in expired %}
+      
+    <div class="card expired mb-2 medicine-card" data-name="{{ med.name|lower }}" data-status="expired">
+        <div>
+          {% if med.image_filename %}
+          
+            <img src="{{ url_for('static', filename='uploads/' ~ med.image_filename) }}" alt="Medicine Image" style="max-width:80px;max-height:80px;border-radius:6px;margin-bottom:8px;">
+          
+          {% endif %}
+          
+          <h5>{{ med.name }}</h5>
+          
+          <p>Expiry: {{ med.expiry_date.strftime('%Y-%m-%d') }}</p>
+          {% if med.notes %}<p><small>{{ med.notes }}</small></p>{% endif %}
+          <form method="post" action="/delete/{{ med.id }}" style="display:inline;" ;">
+            <button type="submit" class="btn btn-danger float-end ms-2" title="Delete">&times;</button>
+          </form>
+
+          <a href="/edit/{{ med.id }}" class="btn btn-secondary float-end ms-2" title="Edit">Edit</a>
+        </div>
+      </div>
+    {% else %}<p class="text-muted">None</p>{% endfor %}
+    </div>
+    
+    <div class="pagination-controls" id="expiredPagination"></div>
+
+  </div>
+
+  <div class="col" id="expiringCol">
+    <h4 class="text-warning">Expiring Soon</h4>
+    <div class="cards-container" id="expiringCards">
+    
+    {% for med in expiring %}
+      <div class="card expiring mb-2 medicine-card" data-name="{{ med.name|lower }}" data-status="expiring">
+        <div>
+          {% if med.image_filename %}
+            <img src="{{ url_for('static', filename='uploads/' ~ med.image_filename) }}" alt="Medicine Image" style="max-width:80px;max-height:80px;border-radius:6px;margin-bottom:8px;">
+          {% endif %}
+          <h5>{{ med.name }}
+            {% if (med.expiry_date - today).days <= expiring_soon_days %}
+              <span class="text-warning" style="font-size:0.9em; font-weight:bold; margin-left:8px;">⚠️ Expiring Soon!</span>
+            {% endif %}
+          </h5>
+          <p>Expiry: {{ med.expiry_date.strftime('%Y-%m-%d') }}</p>
+          {% if med.notes %}<p><small>{{ med.notes }}</small></p>{% endif %}
+          <form method="post" action="/delete/{{ med.id }}" style="display:inline;">
+            <button type="submit" class="btn btn-danger float-end ms-2" title="Delete">&times;</button>
+          </form>
+          <a href="/edit/{{ med.id }}" class="btn btn-secondary float-end ms-2" title="Edit">Edit</a>
+        </div>
+      </div>
+    {% else %}<p class="text-muted">None</p>{% endfor %}
+    </div>
+
+    <div class="pagination-controls" id="expiringPagination"></div>
+
+  </div>
+
+  <div class="col" id="activeCol">
+    <h4 class="text-success">Active</h4>
+    <div class="cards-container" id="activeCards">
+    {% for med in active %}
+      <div class="card active mb-2 medicine-card" data-name="{{ med.name|lower }}" data-status="active">
+        <div>
+          {% if med.image_filename %}
+            <img src="{{ url_for('static', filename='uploads/' ~ med.image_filename) }}" alt="Medicine Image" style="max-width:80px;max-height:80px;border-radius:6px;margin-bottom:8px;">
+          {% endif %}
+          <h5>{{ med.name }}</h5>
+          <p>Expiry: {{ med.expiry_date.strftime('%Y-%m-%d') }}</p>
+          {% if med.notes %}<p><small>{{ med.notes }}</small></p>{% endif %}
+          <form method="post" action="/delete/{{ med.id }}" style="display:inline;">
+            <button type="submit" class="btn btn-danger float-end ms-2" title="Delete">&times;</button>
+          </form>
+          <a href="/edit/{{ med.id }}" class="btn btn-secondary float-end ms-2" title="Edit">Edit</a>
+        </div>
+      </div>
+    {% else %}<p class="text-muted">None</p>{% endfor %}
+    </div>
+    <div class="pagination-controls" id="activePagination"></div>
+  </div>
+</div>
+<script>
+
+const searchInput = document.getElementById('searchInput');
+const statusFilter = document.getElementById('statusFilter');
+const sortBy = document.getElementById('sortBy');
+const cards = document.querySelectorAll('.medicine-card');
+
+const PAGE_SIZE = 5;
+const paginatedCols = [
+  {cards: 'expiredCards', pag: 'expiredPagination'},
+  {cards: 'expiringCards', pag: 'expiringPagination'},
+  {cards: 'activeCards', pag: 'activePagination'}
+];
+const pageState = {expired: 1, expiring: 1, active: 1};
+
+function showPage(col, status) {
+  const container = document.getElementById(col.cards);
+  const pag = document.getElementById(col.pag);
+  const allCards = Array.from(container.querySelectorAll('.medicine-card'));
+  const visibleCards = allCards.filter(card => card.style.display !== 'none');
+  const totalPages = Math.ceil(visibleCards.length / PAGE_SIZE) || 1;
+  const page = Math.min(pageState[status], totalPages);
+  pageState[status] = page;
+  visibleCards.forEach((card, i) => {
+    card.style.display = (i >= (page-1)*PAGE_SIZE && i < page*PAGE_SIZE) ? '' : 'none';
+  });
+  pag.innerHTML = '';
+  if (totalPages > 1) {
+    const prev = document.createElement('button');
+    prev.textContent = 'Previous';
+    prev.className = 'btn btn-secondary ms-2';
+    prev.disabled = page === 1;
+    prev.onclick = () => { pageState[status]--; showPage(col, status); };
+    pag.appendChild(prev);
+    const info = document.createElement('span');
+    info.textContent = ` Page ${page} of ${totalPages} `;
+    pag.appendChild(info);
+    const next = document.createElement('button');
+    next.textContent = 'Next';
+    next.className = 'btn btn-secondary ms-2';
+    next.disabled = page === totalPages;
+    next.onclick = () => { pageState[status]++; showPage(col, status); };
+    pag.appendChild(next);
+  }
+}
+
+function updatePagination() {
+  showPage(paginatedCols[0], 'expired');
+  showPage(paginatedCols[1], 'expiring');
+  showPage(paginatedCols[2], 'active');
+}
+
+function filterCards() {
+  const search = searchInput.value.toLowerCase();
+  const status = statusFilter.value;
+  cards.forEach(card => {
+    const name = card.getAttribute('data-name');
+    const cardStatus = card.getAttribute('data-status');
+    const matchesName = name.includes(search);
+    const matchesStatus = (status === 'all') || (cardStatus === status);
+    card.style.display = (matchesName && matchesStatus) ? '' : 'none';
+  });
+  updatePagination();
+}
+
+function sortCards() {
+  const sortValue = sortBy.value;
+  ['expiredCol', 'expiringCol', 'activeCol'].forEach(colId => {
+    const col = document.getElementById(colId);
+    const cardList = Array.from(col.querySelectorAll('.medicine-card'));
+    cardList.sort((a, b) => {
+      if (sortValue === 'name') {
+        return a.getAttribute('data-name').localeCompare(b.getAttribute('data-name'));
+      } else {
+       
+        const aDate = new Date(a.querySelector('p').textContent.replace('Expiry: ', ''));
+        const bDate = new Date(b.querySelector('p').textContent.replace('Expiry: ', ''));
+        return aDate - bDate;
+      }
+    });
+    cardList.forEach(card => col.appendChild(card));
+  });
+  updatePagination();
+}
+
+searchInput.addEventListener('input', filterCards);
+statusFilter.addEventListener('change', filterCards);
+sortBy.addEventListener('change', sortCards);
+window.addEventListener('DOMContentLoaded', () => { sortCards(); updatePagination(); });
+
+// Sidebar
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+const sidebarOpen = document.getElementById('sidebarOpen');
+function toggleSidebar() {
+  if (sidebar.style.left === '0px') {
+    sidebar.style.left = '-360px';
+    sidebarOverlay.style.display = 'none';
+  } else {
+    sidebar.style.left = '0';
+    sidebarOverlay.style.display = 'block';
+  }
+}
+sidebarOpen.onclick = toggleSidebar;
+sidebarOverlay.onclick = toggleSidebar;
+
+//Import CSV
+const csvInput = document.getElementById('csvfile');
+const csvLabel = document.querySelector('.file-upload-label');
+const csvFileName = document.getElementById('csvfile-name');
+csvLabel.onclick = function() { csvInput.click(); };
+csvInput.onchange = function() {
+  csvFileName.textContent = csvInput.files.length ? csvInput.files[0].name : 'No file chosen';
+};
+</script>
+{% endblock %}
