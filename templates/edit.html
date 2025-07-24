@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Edit Medicine - MediCheck{% endblock %}
+{% block content %}
+<div class="glass-card">
+    <h2>Edit Medicine</h2>
+    <form method="post" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="name">Medicine Name</label>
+            <input type="text" id="name" name="name" value="{{ med.name }}" required>
+        </div>
+        <div class="form-group">
+            <label for="expiry_date">Expiry Date</label>
+            <input type="date" id="expiry_date" name="expiry_date" value="{{ med.expiry_date.strftime('%Y-%m-%d') }}" required>
+        </div>
+        <div class="form-group">
+            <label for="notes">Notes (optional)</label>
+            <textarea id="notes" name="notes" rows="3" placeholder="Add any additional notes...">{{ med.notes }}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="image">Medicine Image (optional)</label>
+            <input type="file" id="image" name="image" accept="image/*">
+            {% if med.image_filename %}
+                <div style="margin-top:8px;">
+                    <img src="{{ url_for('static', filename='uploads/' ~ med.image_filename) }}" alt="Medicine Image" style="max-width:120px;max-height:120px;border-radius:6px;">
+                </div>
+            {% endif %}
+        </div>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <button type="submit" class="btn btn-success">Update Medicine</button>
+            <a href="/dashboard" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
